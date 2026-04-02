@@ -1,0 +1,45 @@
+{
+  "manifest_version": "0.2",
+  "name": "slipstream",
+  "version": "0.1.0",
+  "description": "Manage remote devices and execute commands from Claude. List devices, run shell commands, check status, and view execution history — all through natural language.",
+  "author": {
+    "name": "KeyQ, Inc.",
+    "url": "https://github.com/keyqcloud"
+  },
+  "homepage": "https://slipstream.keyq.io",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keyqcloud/slipstream-mcp"
+  },
+  "server": {
+    "type": "node",
+    "entry_point": "server/server.js",
+    "mcp_config": {
+      "command": "node",
+      "args": [
+        "${__dirname}/server/server.js"
+      ],
+      "env": {
+        "SLIPSTREAM_TOKEN": "${user_config.SLIPSTREAM_TOKEN}",
+        "SLIPSTREAM_API_URL": "${user_config.SLIPSTREAM_API_URL}"
+      }
+    }
+  },
+  "user_config": {
+    "SLIPSTREAM_TOKEN": {
+      "title": "Slipstream API Token",
+      "description": "Personal API token (create at slipstream.keyq.io/settings)",
+      "type": "string",
+      "required": true
+    },
+    "SLIPSTREAM_API_URL": {
+      "title": "API URL",
+      "description": "API URL (leave empty for default)",
+      "type": "string",
+      "required": false,
+      "default": "https://slipstream-api.keyq.io"
+    }
+  },
+  "license": "MIT"
+}

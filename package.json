@@ -1,0 +1,46 @@
+{
+  "name": "@keyqinc/slipstream-mcp",
+  "version": "0.2.0",
+  "description": "Slipstream MCP server for Claude — manage remote devices and execute commands directly from your AI assistant.",
+  "type": "module",
+  "main": "server.js",
+  "bin": {
+    "slipstream-mcp": "server.js"
+  },
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "slipstream",
+    "remote-desktop",
+    "remote-execution",
+    "claude-code",
+    "claude",
+    "anthropic",
+    "devops",
+    "infrastructure",
+    "ssh-alternative",
+    "desktop-extension"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/keyqcloud/slipstream-mcp"
+  },
+  "homepage": "https://slipstream.keyq.io",
+  "bugs": {
+    "url": "https://github.com/keyqcloud/slipstream-mcp/issues"
+  },
+  "author": {
+    "name": "KeyQ, Inc.",
+    "url": "https://keyq.cloud"
+  },
+  "license": "MIT"
+}
