@@ -4,7 +4,7 @@
 
 If you discover a security vulnerability in the Slipstream MCP server, please report it responsibly.
 
-**Email:** security@keyq.cloud
+**Email:** info@keyqcloud.com
 
 **What to include:**
 - Description of the vulnerability
