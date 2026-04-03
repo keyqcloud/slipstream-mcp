@@ -334,16 +334,16 @@ server.tool(
 
 // ─── GUI Control Tools ───────────────────────────
 
-async function pollScreenCapture(captureId, maxWaitMs = 15000) {
+async function pollScreenCapture(captureId, maxWaitMs = 20000) {
   const start = Date.now();
-  let interval = 200;
+  let interval = 300;
   while (Date.now() - start < maxWaitMs) {
     const result = await apiGet(`/screen/${captureId}`);
     if (result.status === "completed" || result.status === "failed" || result.status === "timeout") {
       return result;
     }
     await new Promise((r) => setTimeout(r, interval));
-    interval = Math.min(interval * 1.5, 1000);
+    interval = Math.min(interval * 1.5, 1500);
   }
   return { status: "timeout" };
 }
@@ -351,35 +351,42 @@ async function pollScreenCapture(captureId, maxWaitMs = 15000) {
 // Tool: capture screen
 server.tool(
   "capture_screen",
-  "Take a screenshot of a remote device's screen. Returns the image so you can see what's on the display. Use this to understand the current state of the GUI before performing actions. Requires remote:view permission.",
+  "Take a screenshot of a remote device's screen. Returns the image so you can see what's on the display. Use this before and after GUI actions to understand the current state. Tip: to open applications, prefer execute_command (e.g. 'DISPLAY=:0 nohup firefox &') over clicking small taskbar icons. Requires remote:view permission.",
   {
     device_id: z.coerce.number().describe("Device ID (use list_devices to find IDs)"),
   },
   async ({ device_id }) => {
     try {
-      debug(`Capturing screen on device ${device_id}...`);
-      const capture = await apiPost(`/screen/devices/${device_id}/capture`, {});
-      const result = await pollScreenCapture(capture.capture_id);
+      // Try up to 2 attempts (retry once on timeout)
+      for (let attempt = 0; attempt < 2; attempt++) {
+        debug(`Capturing screen on device ${device_id} (attempt ${attempt + 1})...`);
+        const capture = await apiPost(`/screen/devices/${device_id}/capture`, {});
+        const result = await pollScreenCapture(capture.capture_id);
 
-      if (result.status === "completed" && result.image_base64) {
-        return {
-          content: [
-            {
-              type: "image",
-              data: result.image_base64,
-              mimeType: "image/jpeg",
-            },
-            {
-              type: "text",
-              text: `Screenshot captured: ${result.width}x${result.height} pixels (device ${device_id})`,
-            },
-          ],
-        };
-      } else if (result.status === "timeout") {
-        return { content: [{ type: "text", text: "Screenshot timed out. The device may not have a display or screen capture may not be available." }], isError: true };
-      } else {
-        return { content: [{ type: "text", text: `Screenshot failed: ${result.status}` }], isError: true };
+        if (result.status === "completed" && result.image_base64) {
+          return {
+            content: [
+              {
+                type: "image",
+                data: result.image_base64,
+                mimeType: "image/jpeg",
+              },
+              {
+                type: "text",
+                text: `Screenshot captured: ${result.width}x${result.height} pixels (device ${device_id})`,
+              },
+            ],
+          };
+        } else if (result.status === "timeout" && attempt === 0) {
+          debug("First capture timed out, retrying...");
+          continue;
+        } else if (result.status === "timeout") {
+          return { content: [{ type: "text", text: "Screenshot timed out after retry. The device may not have a display or screen capture may not be available." }], isError: true };
+        } else {
+          return { content: [{ type: "text", text: `Screenshot failed: ${result.status}` }], isError: true };
+        }
       }
+      return { content: [{ type: "text", text: "Screenshot failed after retries." }], isError: true };
     } catch (e) {
       return { content: [{ type: "text", text: `Error capturing screen: ${e.message}` }], isError: true };
     }
@@ -395,7 +402,7 @@ server.tool(
     x: z.coerce.number().describe("X coordinate (pixels from left)"),
     y: z.coerce.number().describe("Y coordinate (pixels from top)"),
     button: z.enum(["left", "right", "middle"]).optional().default("left").describe("Mouse button"),
-    double_click: z.boolean().optional().default(false).describe("Double-click instead of single click"),
+    double_click: z.coerce.boolean().optional().default(false).describe("Double-click instead of single click"),
   },
   async ({ device_id, x, y, button, double_click }) => {
     try {
@@ -440,10 +447,10 @@ server.tool(
   {
     device_id: z.coerce.number().describe("Device ID"),
     key: z.string().describe("Key to press (e.g. 'Return', 'Tab', 'Escape', 'F5', 'a', 'ArrowDown')"),
-    ctrl: z.boolean().optional().default(false).describe("Hold Ctrl"),
-    alt: z.boolean().optional().default(false).describe("Hold Alt"),
-    shift: z.boolean().optional().default(false).describe("Hold Shift"),
-    meta: z.boolean().optional().default(false).describe("Hold Meta/Cmd/Win"),
+    ctrl: z.coerce.boolean().optional().default(false).describe("Hold Ctrl"),
+    alt: z.coerce.boolean().optional().default(false).describe("Hold Alt"),
+    shift: z.coerce.boolean().optional().default(false).describe("Hold Shift"),
+    meta: z.coerce.boolean().optional().default(false).describe("Hold Meta/Cmd/Win"),
   },
   async ({ device_id, key, ctrl, alt, shift, meta }) => {
     try {
