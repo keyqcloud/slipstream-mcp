@@ -205,7 +205,7 @@ server.tool(
 // Tool: execute command
 server.tool(
   "execute_command",
-  "Execute a shell command on a remote Slipstream device. Returns stdout, stderr, and exit code. The command runs in a shell (sh -c on Linux/macOS, cmd /C on Windows). Requires exec:command permission — grant it in the Slipstream dashboard under Team > Permissions.",
+  "Execute a shell command on a remote Slipstream device. Returns stdout, stderr, and exit code. The command runs in a shell (sh -c on Linux/macOS, cmd /C on Windows). Requires exec:command permission. IMPORTANT: On Windows, use 'powershell -Command \"Start-Process <app>\"' to launch GUI apps (not 'start'). On Linux, use 'DISPLAY=:0 nohup <app> > /dev/null 2>&1 & echo launched'. Always capture_screen after launching to verify before retrying.",
   {
     device_id: z.coerce.number().describe("Device ID (use list_devices to find IDs)"),
     command: z.string().max(10000).describe("Shell command to execute (max 10,000 chars)"),
