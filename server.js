@@ -537,6 +537,81 @@ server.tool(
   }
 );
 
+// ─── UI Automation Tools ─────────────────────────
+
+// Tool: find UI elements
+server.tool(
+  "find_elements",
+  "Find UI elements on a remote device's screen by name and/or role. Returns elements with their names, roles, and positions. Use this to discover what's on screen before clicking. Much more reliable than coordinate-based clicking for buttons, links, and text fields. Windows only (uses UI Automation API).",
+  {
+    device_id: z.coerce.number().describe("Device ID"),
+    name: z.string().optional().describe("Search by element name/text (partial match, case-insensitive)"),
+    role: z.string().optional().describe("Filter by role: button, link, textfield, checkbox, menuitem, text, window, tab, listitem"),
+    window_title: z.string().optional().describe("Limit search to a specific window by title"),
+  },
+  async ({ device_id, name, role, window_title }) => {
+    try {
+      debug(`Finding elements on device ${device_id}: name=${name}, role=${role}`);
+      const query = await apiPost(`/screen/devices/${device_id}/find-elements`, {
+        name: name || null,
+        role: role || null,
+        window_title: window_title || null,
+      });
+
+      // Poll for result (reuses screen capture polling)
+      const result = await pollScreenCapture(query.query_id);
+
+      if (result.status === "completed" && result.image_base64) {
+        // image_base64 contains the JSON-encoded element list
+        try {
+          const elements = JSON.parse(result.image_base64);
+          if (elements.length === 0) {
+            return { content: [{ type: "text", text: `No elements found matching name="${name || "*"}", role="${role || "*"}". Try broader criteria or use capture_screen to see the current state.` }] };
+          }
+          const text = elements.map((e, i) => {
+            const pos = e.bounding_rect ? `(${e.bounding_rect[0]}, ${e.bounding_rect[1]})` : "";
+            return `[${i}] "${e.name}" (${e.role}) ${pos}${e.is_enabled ? "" : " [disabled]"}`;
+          }).join("\n");
+          return { content: [{ type: "text", text: `Found ${elements.length} elements:\n${text}\n\nUse click_element with name and role to click one.` }] };
+        } catch {
+          return { content: [{ type: "text", text: result.image_base64 }] };
+        }
+      } else {
+        return { content: [{ type: "text", text: "Element search timed out. The device may not support UI Automation (Windows only)." }], isError: true };
+      }
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// Tool: click UI element by name/role
+server.tool(
+  "click_element",
+  "Click a UI element on a remote device by its name and/or role. Much more reliable than coordinate-based clicking — finds the element in the accessibility tree and clicks its center. Use find_elements first to discover available elements. Windows only (uses UI Automation API).",
+  {
+    device_id: z.coerce.number().describe("Device ID"),
+    name: z.string().optional().describe("Element name/text to click (partial match)"),
+    role: z.string().optional().describe("Element role: button, link, textfield, checkbox, menuitem"),
+    window_title: z.string().optional().describe("Limit to a specific window"),
+    index: z.coerce.number().optional().default(0).describe("If multiple matches, click the Nth one (0-based)"),
+  },
+  async ({ device_id, name, role, window_title, index }) => {
+    try {
+      debug(`Clicking element on device ${device_id}: name=${name}, role=${role}`);
+      await apiPost(`/screen/devices/${device_id}/click-element`, {
+        name: name || null,
+        role: role || null,
+        window_title: window_title || null,
+        index: index || 0,
+      });
+      return { content: [{ type: "text", text: `Clicked element "${name || "*"}" (${role || "*"}) on device ${device_id}. Use capture_screen to verify.` }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
 // Start server
 debug("Starting Slipstream MCP server...");
 debug(`API: ${API_URL}`);
