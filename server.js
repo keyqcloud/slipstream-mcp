@@ -332,6 +332,160 @@ server.tool(
   }
 );
 
+// ─── GUI Control Tools ───────────────────────────
+
+async function pollScreenCapture(captureId, maxWaitMs = 15000) {
+  const start = Date.now();
+  let interval = 200;
+  while (Date.now() - start < maxWaitMs) {
+    const result = await apiGet(`/screen/${captureId}`);
+    if (result.status === "completed" || result.status === "failed" || result.status === "timeout") {
+      return result;
+    }
+    await new Promise((r) => setTimeout(r, interval));
+    interval = Math.min(interval * 1.5, 1000);
+  }
+  return { status: "timeout" };
+}
+
+// Tool: capture screen
+server.tool(
+  "capture_screen",
+  "Take a screenshot of a remote device's screen. Returns the image so you can see what's on the display. Use this to understand the current state of the GUI before performing actions. Requires remote:view permission.",
+  {
+    device_id: z.coerce.number().describe("Device ID (use list_devices to find IDs)"),
+  },
+  async ({ device_id }) => {
+    try {
+      debug(`Capturing screen on device ${device_id}...`);
+      const capture = await apiPost(`/screen/devices/${device_id}/capture`, {});
+      const result = await pollScreenCapture(capture.capture_id);
+
+      if (result.status === "completed" && result.image_base64) {
+        return {
+          content: [
+            {
+              type: "image",
+              data: result.image_base64,
+              mimeType: "image/jpeg",
+            },
+            {
+              type: "text",
+              text: `Screenshot captured: ${result.width}x${result.height} pixels (device ${device_id})`,
+            },
+          ],
+        };
+      } else if (result.status === "timeout") {
+        return { content: [{ type: "text", text: "Screenshot timed out. The device may not have a display or screen capture may not be available." }], isError: true };
+      } else {
+        return { content: [{ type: "text", text: `Screenshot failed: ${result.status}` }], isError: true };
+      }
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error capturing screen: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// Tool: mouse click
+server.tool(
+  "mouse_click",
+  "Click at a specific position on the remote device's screen. Use capture_screen first to see the screen and determine coordinates. Coordinates are absolute pixel positions. Requires remote:control permission.",
+  {
+    device_id: z.coerce.number().describe("Device ID"),
+    x: z.coerce.number().describe("X coordinate (pixels from left)"),
+    y: z.coerce.number().describe("Y coordinate (pixels from top)"),
+    button: z.enum(["left", "right", "middle"]).optional().default("left").describe("Mouse button"),
+    double_click: z.boolean().optional().default(false).describe("Double-click instead of single click"),
+  },
+  async ({ device_id, x, y, button, double_click }) => {
+    try {
+      const buttonNum = button === "right" ? 2 : button === "middle" ? 1 : 0;
+      const action = double_click
+        ? { type: "MouseDoubleClick", x, y }
+        : { type: "MouseClick", x, y, button: buttonNum };
+
+      await apiPost(`/screen/devices/${device_id}/input`, { action });
+      const clickType = double_click ? "Double-clicked" : "Clicked";
+      return { content: [{ type: "text", text: `${clickType} ${button || "left"} at (${x}, ${y}) on device ${device_id}. Use capture_screen to see the result.` }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// Tool: type text
+server.tool(
+  "type_text",
+  "Type text on the remote device as if using the keyboard. The text is typed at the current cursor position. Use mouse_click first to focus the right input field. Requires remote:control permission.",
+  {
+    device_id: z.coerce.number().describe("Device ID"),
+    text: z.string().max(5000).describe("Text to type"),
+  },
+  async ({ device_id, text }) => {
+    try {
+      await apiPost(`/screen/devices/${device_id}/input`, {
+        action: { type: "TypeText", text },
+      });
+      return { content: [{ type: "text", text: `Typed "${text.slice(0, 100)}${text.length > 100 ? "..." : ""}" on device ${device_id}. Use capture_screen to see the result.` }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// Tool: key press
+server.tool(
+  "key_press",
+  "Press a keyboard key or key combination on the remote device. Supports special keys (Return, Tab, Escape, F1-F12, ArrowUp/Down/Left/Right) and modifier combinations (ctrl+c, alt+tab, cmd+s). Requires remote:control permission.",
+  {
+    device_id: z.coerce.number().describe("Device ID"),
+    key: z.string().describe("Key to press (e.g. 'Return', 'Tab', 'Escape', 'F5', 'a', 'ArrowDown')"),
+    ctrl: z.boolean().optional().default(false).describe("Hold Ctrl"),
+    alt: z.boolean().optional().default(false).describe("Hold Alt"),
+    shift: z.boolean().optional().default(false).describe("Hold Shift"),
+    meta: z.boolean().optional().default(false).describe("Hold Meta/Cmd/Win"),
+  },
+  async ({ device_id, key, ctrl, alt, shift, meta }) => {
+    try {
+      await apiPost(`/screen/devices/${device_id}/input`, {
+        action: {
+          type: "KeyPress",
+          key,
+          modifiers: { ctrl, alt, shift, meta },
+        },
+      });
+      const mods = [ctrl && "Ctrl", alt && "Alt", shift && "Shift", meta && "Meta"].filter(Boolean);
+      const combo = mods.length > 0 ? `${mods.join("+")}+${key}` : key;
+      return { content: [{ type: "text", text: `Pressed ${combo} on device ${device_id}. Use capture_screen to see the result.` }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
+// Tool: scroll
+server.tool(
+  "scroll",
+  "Scroll at a specific position on the remote device's screen. Positive delta_y scrolls down, negative scrolls up. Requires remote:control permission.",
+  {
+    device_id: z.coerce.number().describe("Device ID"),
+    x: z.coerce.number().describe("X coordinate to scroll at"),
+    y: z.coerce.number().describe("Y coordinate to scroll at"),
+    delta_y: z.coerce.number().describe("Scroll amount (positive = down, negative = up, typical: 3 or -3)"),
+  },
+  async ({ device_id, x, y, delta_y }) => {
+    try {
+      await apiPost(`/screen/devices/${device_id}/input`, {
+        action: { type: "Scroll", x, y, delta_x: 0, delta_y },
+      });
+      const direction = delta_y > 0 ? "down" : "up";
+      return { content: [{ type: "text", text: `Scrolled ${direction} at (${x}, ${y}) on device ${device_id}. Use capture_screen to see the result.` }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
 // Start server
 debug("Starting Slipstream MCP server...");
 debug(`API: ${API_URL}`);
