@@ -362,6 +362,7 @@ server.tool(
         debug(`Capturing screen on device ${device_id} (attempt ${attempt + 1})...`);
         const capture = await apiPost(`/screen/devices/${device_id}/capture`, {});
         const result = await pollScreenCapture(capture.capture_id);
+        debug("Capture result metadata:", JSON.stringify({ dpi_scale: result.dpi_scale, title: result.title, content_x: result.content_x, content_y: result.content_y, content_w: result.content_w, content_h: result.content_h }));
 
         if (result.status === "completed" && result.image_base64) {
           return {
@@ -373,7 +374,7 @@ server.tool(
               },
               {
                 type: "text",
-                text: `Screenshot captured: ${result.width}x${result.height} pixels (device ${device_id})`,
+                text: `Screenshot captured: ${result.width}x${result.height} pixels (device ${device_id}). DPI scale: ${result.dpi_scale || "unknown"}. Foreground window: "${result.title || result.window_title || "unknown"}", content area: (${result.content_x || 0}, ${result.content_y || 0}). Mouse cursor at screenshot pixel: (${result.cursor_x ?? "?"}, ${result.cursor_y ?? "?"}).`,
               },
             ],
           };
