@@ -493,6 +493,50 @@ server.tool(
   }
 );
 
+// Tool: drag (mouse down, move, mouse up)
+server.tool(
+  "drag",
+  "Click and drag from one position to another on the remote device's screen. Useful for moving windows, dragging files, selecting text, moving chess pieces, etc. Requires remote:control permission.",
+  {
+    device_id: z.coerce.number().describe("Device ID"),
+    from_x: z.coerce.number().describe("Starting X coordinate"),
+    from_y: z.coerce.number().describe("Starting Y coordinate"),
+    to_x: z.coerce.number().describe("Ending X coordinate"),
+    to_y: z.coerce.number().describe("Ending Y coordinate"),
+    button: z.enum(["left", "right"]).optional().default("left").describe("Mouse button to drag with"),
+  },
+  async ({ device_id, from_x, from_y, to_x, to_y, button }) => {
+    try {
+      const buttonNum = button === "right" ? 2 : 0;
+
+      // Mouse down at start
+      await apiPost(`/screen/devices/${device_id}/input`, {
+        action: { type: "MouseDown", x: from_x, y: from_y, button: buttonNum },
+      });
+
+      // Small delay for the press to register
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Move to destination
+      await apiPost(`/screen/devices/${device_id}/input`, {
+        action: { type: "MouseMove", x: to_x, y: to_y },
+      });
+
+      // Small delay for the move to register
+      await new Promise((r) => setTimeout(r, 100));
+
+      // Mouse up at destination
+      await apiPost(`/screen/devices/${device_id}/input`, {
+        action: { type: "MouseUp", x: to_x, y: to_y, button: buttonNum },
+      });
+
+      return { content: [{ type: "text", text: `Dragged from (${from_x}, ${from_y}) to (${to_x}, ${to_y}) on device ${device_id}. Use capture_screen to see the result.` }] };
+    } catch (e) {
+      return { content: [{ type: "text", text: `Error: ${e.message}` }], isError: true };
+    }
+  }
+);
+
 // Start server
 debug("Starting Slipstream MCP server...");
 debug(`API: ${API_URL}`);
