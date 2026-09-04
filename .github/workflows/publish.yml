@@ -1,7 +1,10 @@
-name: Publish to npm
+name: Stage npm release
 
-# Publishes @keyqinc/slipstream-mcp via npm Trusted Publishing (GitHub OIDC —
-# no NPM_TOKEN). Trigger by pushing a version tag (e.g. `v0.2.1`), or run manually.
+# Stages @keyqinc/slipstream-mcp via npm Trusted Publishing (GitHub OIDC — no
+# NPM_TOKEN) using STAGED publishing: CI stages the release, then a maintainer
+# promotes it to live from npmjs.com (or the npm CLI) with 2FA. A
+# compromised CI can stage but never go live on its own.
+# Trigger by pushing a version tag (e.g. `v0.2.1`), or run manually.
 on:
   push:
     tags: ['v*']
@@ -12,7 +15,7 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  stage:
     runs-on: ubuntu-latest   # must be a GitHub-hosted runner for OIDC
     steps:
       - uses: actions/checkout@v4
@@ -20,9 +23,11 @@ jobs:
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      # Trusted publishing needs npm CLI >= 11.5.1.
+      # Trusted + staged publishing need a recent npm CLI.
       - run: npm install -g npm@latest
       - run: npm --version
       # No NODE_AUTH_TOKEN — the npm CLI detects the OIDC env and authenticates.
-      # publishConfig.access=public in package.json keeps the scoped package public.
-      - run: npm publish
+      # `stage publish` uploads to the staging queue; the trusted publisher is
+      # stage-only, so a plain `npm publish` would be rejected. Promote the staged
+      # version from npmjs.com (or the npm CLI) with 2FA to go live.
+      - run: npm stage publish
