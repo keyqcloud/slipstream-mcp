@@ -1,11 +1,14 @@
 {
   "name": "@keyqinc/slipstream-mcp",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "description": "Slipstream MCP server for Claude — manage remote devices and execute commands directly from your AI assistant.",
   "type": "module",
   "main": "server.js",
   "bin": {
     "slipstream-mcp": "server.js"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "scripts": {
     "start": "node server.js"

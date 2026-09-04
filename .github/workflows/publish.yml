@@ -1,0 +1,28 @@
+name: Publish to npm
+
+# Publishes @keyqinc/slipstream-mcp via npm Trusted Publishing (GitHub OIDC —
+# no NPM_TOKEN). Trigger by pushing a version tag (e.g. `v0.2.1`), or run manually.
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required: lets GitHub Actions mint the OIDC token npm trusts
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest   # must be a GitHub-hosted runner for OIDC
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          registry-url: 'https://registry.npmjs.org'
+      # Trusted publishing needs npm CLI >= 11.5.1.
+      - run: npm install -g npm@latest
+      - run: npm --version
+      # No NODE_AUTH_TOKEN — the npm CLI detects the OIDC env and authenticates.
+      # publishConfig.access=public in package.json keeps the scoped package public.
+      - run: npm publish

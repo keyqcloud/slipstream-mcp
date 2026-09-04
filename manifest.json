@@ -1,7 +1,7 @@
 {
   "manifest_version": "0.2",
   "name": "slipstream",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Manage remote devices and execute commands from Claude. List devices, run shell commands, check status, and view execution history — all through natural language.",
   "author": {
     "name": "KeyQ, Inc.",
@@ -14,11 +14,11 @@
   },
   "server": {
     "type": "node",
-    "entry_point": "server/server.js",
+    "entry_point": "server.js",
     "mcp_config": {
       "command": "node",
       "args": [
-        "${__dirname}/server/server.js"
+        "${__dirname}/server.js"
       ],
       "env": {
         "SLIPSTREAM_TOKEN": "${user_config.SLIPSTREAM_TOKEN}",

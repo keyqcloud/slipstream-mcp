@@ -9,6 +9,14 @@ MCP server for [Slipstream](https://slipstream.keyq.io) — manage remote device
 
 [Slipstream](https://slipstream.keyq.io) is a cross-platform remote desktop, terminal, and device management tool. This MCP server lets you interact with your Slipstream devices directly from Claude — list devices, execute commands, and monitor your infrastructure through natural language.
 
+## How it works
+
+This is a thin **stdio bridge** to Slipstream's hosted MCP endpoint. It connects to
+`https://slipstream-api.keyq.io/mcp` with your token and re-exposes its tools over
+stdio for local clients (Claude Desktop / Claude Code). The hosted server is the
+single source of truth, so the available tools always match — nothing to keep in
+sync here.
+
 ## Installation
 
 ### Claude Desktop (Recommended)
@@ -53,6 +61,9 @@ Remote command execution requires explicit permission:
 2. Enable **Remote Command Execution** (`exec:command`)
 
 ## Tools
+
+The tool set is served live by the hosted MCP (run `tools/list`, or just ask
+Claude what it can do). The following are representative:
 
 ### `list_devices`
 
